@@ -11,10 +11,8 @@ using Bicep.Core;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;
 using Bicep.Core.Parsing;
-using Bicep.Core.Resources;
 using Bicep.Core.Semantics;
 using Bicep.Core.Syntax;
-using Bicep.Core.TypeSystem;
 using Bicep.LanguageServer.CompilationManager;
 using Bicep.LanguageServer.Extensions;
 using MediatR;
@@ -88,7 +86,7 @@ namespace Bicep.LanguageServer.Handlers
 
                     if (symbol is ResourceSymbol resourceSymbol)
                     {
-                        var resourceType = resourceSymbol.TryGetResourceTypeReference()?.FullyQualifiedType ?? "<unknown>";
+                        var resourceType = resourceSymbol.TryGetResourceTypeReference()?.FormatType() ?? "<unknown>";
                         var isCollection = resourceSymbol.IsCollection;
                         var resourceSpan = resourceSymbol.DeclaringResource.Span;
                         var range = resourceSpan.ToRange(context.LineStarts);

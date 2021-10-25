@@ -69,11 +69,12 @@ resource foo 'Microsoft.Foo/foos@2020-02-02-alpha'= if (name == 'value') {
 
 resource foo 'Microsoft.Foo/foos@2020-02-02-alpha'= if ({ 'a': b }.a == 'foo') {
 //@[9:12) [BCP028 (Error)] Identifier "foo" is declared multiple times. Remove or rename the duplicates. (CodeDescription: none) |foo|
+//@[9:12) [BCP035 (Error)] The specified "resource" declaration is missing the following required properties: "name". (CodeDescription: none) |foo|
 //@[13:50) [BCP081 (Warning)] Resource type "Microsoft.Foo/foos@2020-02-02-alpha" does not have types available. (CodeDescription: none) |'Microsoft.Foo/foos@2020-02-02-alpha'|
+//@[58:58) [BCP019 (Error)] Expected a new line character at this location. (CodeDescription: none) ||
 //@[63:64) [BCP057 (Error)] The name "b" does not exist in the current context. (CodeDescription: none) |b|
-//@[65:66) [BCP019 (Error)] Expected a new line character at this location. (CodeDescription: none) |}|
+//@[65:65) [BCP019 (Error)] Expected a new line character at this location. (CodeDescription: none) ||
 }
-//@[1:1) [BCP018 (Error)] Expected the ")" character at this location. (CodeDescription: none) ||
 
 // simulate typing if condition
 resource foo 'Microsoft.Foo/foos@2020-02-02-alpha'= if
@@ -2032,7 +2033,6 @@ resource issue3000LogicApp1 'Microsoft.Logic/workflows@2019-05-01' = {
     definition: ''
   }
   identity: {
-//@[2:10) [BCP187 (Warning)] The property "identity" does not exist in the resource definition, although it might still be valid. If this is an inaccuracy in the documentation, please report it to the Bicep Team. (CodeDescription: bicep(https://aka.ms/bicep-type-issues)) |identity|
     type: 'SystemAssigned'
   }
   extendedLocation: {}
@@ -2069,8 +2069,7 @@ resource issue3000LogicApp2 'Microsoft.Logic/workflows@2019-05-01' = {
     definition: ''
   }
   identity: 'SystemAssigned'
-//@[2:10) [BCP187 (Warning)] The property "identity" does not exist in the resource definition, although it might still be valid. If this is an inaccuracy in the documentation, please report it to the Bicep Team. (CodeDescription: bicep(https://aka.ms/bicep-type-issues)) |identity|
-//@[12:28) [BCP036 (Error)] The property "identity" expected a value of type "object" but the provided value is of type "'SystemAssigned'". (CodeDescription: none) |'SystemAssigned'|
+//@[12:28) [BCP036 (Error)] The property "identity" expected a value of type "ManagedServiceIdentity | null" but the provided value is of type "'SystemAssigned'". (CodeDescription: none) |'SystemAssigned'|
   extendedLocation: 'eastus'
 //@[2:18) [BCP187 (Warning)] The property "extendedLocation" does not exist in the resource definition, although it might still be valid. If this is an inaccuracy in the documentation, please report it to the Bicep Team. (CodeDescription: bicep(https://aka.ms/bicep-type-issues)) |extendedLocation|
 //@[20:28) [BCP036 (Error)] The property "extendedLocation" expected a value of type "object" but the provided value is of type "'eastus'". (CodeDescription: none) |'eastus'|

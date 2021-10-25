@@ -118,7 +118,7 @@ namespace Bicep.Core.Emit
             switch (functionCall)
             {
                 case FunctionCallSyntax function:
-                    return ConvertFunction(
+                    return CreateFunction(
                         function.Name.IdentifierName,
                         function.Arguments.Select(a => ConvertExpression(a.Expression)));
 
@@ -131,9 +131,9 @@ namespace Bicep.Core.Emit
 
                     switch (baseSymbol)
                     {
-                        case NamespaceSymbol namespaceSymbol:
+                        case INamespaceSymbol namespaceSymbol:
                             Debug.Assert(indexExpression is null, "Indexing into a namespace should have been blocked by type analysis");
-                            return ConvertFunction(
+                            return CreateFunction(
                                 instanceFunctionCall.Name.IdentifierName,
                                 instanceFunctionCall.Arguments.Select(a => ConvertExpression(a.Expression)));
                         case ResourceSymbol resourceSymbol when context.SemanticModel.ResourceMetadata.TryLookup(resourceSymbol.DeclaringSyntax) is { } resource:
@@ -251,7 +251,7 @@ namespace Bicep.Core.Emit
                     // we should return whatever the user has set as the value of the 'name' property for a predictable user experience.
                     return ConvertExpression(resource.NameSyntax);
                 case ("type", false):
-                    return new JTokenExpression(resource.TypeReference.FullyQualifiedType);
+                    return new JTokenExpression(resource.TypeReference.FormatType());
                 case ("apiVersion", false):
                     return new JTokenExpression(resource.TypeReference.ApiVersion);
                 case ("properties", _):
@@ -450,7 +450,7 @@ namespace Bicep.Core.Emit
         public static SyntaxBase GetModuleNameSyntax(ModuleSymbol moduleSymbol)
         {
             // this condition should have already been validated by the type checker
-            return moduleSymbol.SafeGetBodyPropertyValue(LanguageConstants.ResourceNamePropertyName) ?? throw new ArgumentException($"Expected module syntax body to contain property 'name'");
+            return moduleSymbol.SafeGetBodyPropertyValue(LanguageConstants.ModuleNamePropertyName) ?? throw new ArgumentException($"Expected module syntax body to contain property 'name'");
         }
 
         public LanguageExpression GetUnqualifiedResourceId(ResourceMetadata resource)
@@ -459,7 +459,7 @@ namespace Bicep.Core.Emit
                 context,
                 this,
                 context.ResourceScopeData[resource],
-                resource.TypeReference.FullyQualifiedType,
+                resource.TypeReference.FormatType(),
                 GetResourceNameSegments(resource));
         }
 
@@ -469,7 +469,7 @@ namespace Bicep.Core.Emit
                 context,
                 this,
                 context.ResourceScopeData[resource],
-                resource.TypeReference.FullyQualifiedType,
+                resource.TypeReference.FormatType(),
                 GetResourceNameSegments(resource));
         }
 
@@ -667,19 +667,6 @@ namespace Bicep.Core.Emit
                 return new JTokenExpression(literalStringValue);
             }
 
-            if (syntax.Expressions.Length == 1)
-            {
-                const string emptyStringOpen = LanguageConstants.StringDelimiter + LanguageConstants.StringHoleOpen; // '${
-                const string emptyStringClose = LanguageConstants.StringHoleClose + LanguageConstants.StringDelimiter; // }'
-
-                // Special-case interpolation of format '${myValue}' because it's a common pattern for userAssignedIdentities.
-                // There's no need for a 'format' function because we just have a single expression with no outer formatting.
-                if (syntax.StringTokens[0].Text == emptyStringOpen && syntax.StringTokens[1].Text == emptyStringClose)
-                {
-                    return ConvertExpression(syntax.Expressions[0]);
-                }
-            }
-
             var formatArgs = new LanguageExpression[syntax.Expressions.Length + 1];
 
             var formatString = StringFormatConverter.BuildFormatString(syntax);
@@ -730,33 +717,6 @@ namespace Bicep.Core.Emit
             }
 
             throw new NotImplementedException($"Unexpected expression type '{converted.GetType().Name}'.");
-        }
-
-        private static LanguageExpression ConvertFunction(string functionName, IEnumerable<LanguageExpression> arguments)
-        {
-            if (ShouldReplaceUnsupportedFunction(functionName, arguments, out var replacementExpression))
-            {
-                return replacementExpression;
-            }
-
-            return CreateFunction(functionName, arguments);
-        }
-
-        private static bool ShouldReplaceUnsupportedFunction(string functionName, IEnumerable<LanguageExpression> arguments, [NotNullWhen(true)] out LanguageExpression? replacementExpression)
-        {
-            switch (functionName)
-            {
-                // These functions have not yet been implemented in ARM. For now, we will just return an empty object if they are accessed directly.
-                case "tenant":
-                case "managementGroup":
-                case "subscription" when arguments.Any():
-                case "resourceGroup" when arguments.Any():
-                    replacementExpression = GetCreateObjectExpression();
-                    return true;
-            }
-
-            replacementExpression = null;
-            return false;
         }
 
         private FunctionExpression ConvertArray(ArraySyntax syntax)
@@ -915,6 +875,14 @@ namespace Bicep.Core.Emit
                 return GenerateUnqualifiedResourceId(managementGroupType, new[] { managementGroupName });
             }
         }
+
+        /// <summary>
+        /// Generates a management group id, using the managementGroup() function. Only suitable for use if the template being generated is targeting the management group scope.
+        /// </summary>
+        public static LanguageExpression GenerateCurrentManagementGroupId()
+            => AppendProperties(
+                CreateFunction("managementGroup"),
+                new JTokenExpression("id"));
 
         private static FunctionExpression CreateFunction(string name, params LanguageExpression[] parameters)
             => CreateFunction(name, parameters as IEnumerable<LanguageExpression>);

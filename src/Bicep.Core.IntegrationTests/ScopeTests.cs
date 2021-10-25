@@ -25,7 +25,7 @@ namespace Bicep.Core.IntegrationTests
         [DataRow("tenant", "managementGroup('abc')", "managementGroup", ExpectedTenantSchema, "[reference(extensionResourceId(tenantResourceId('Microsoft.Management/managementGroups', 'abc'), 'Microsoft.Resources/deployments', 'myMod'), '2020-06-01').outputs.hello.value]", "[extensionResourceId(tenantResourceId('Microsoft.Management/managementGroups', 'abc'), 'Microsoft.Resources/deployments', 'myMod')]")]
         [DataRow("tenant", "subscription('abc')", "subscription", ExpectedTenantSchema, "[reference(subscriptionResourceId('abc', 'Microsoft.Resources/deployments', 'myMod'), '2020-06-01').outputs.hello.value]", "[subscriptionResourceId('abc', 'Microsoft.Resources/deployments', 'myMod')]")]
         [DataRow("tenant", "resourceGroup('abc', 'def')", "resourceGroup", ExpectedTenantSchema, "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', 'abc', 'def'), 'Microsoft.Resources/deployments', 'myMod'), '2020-06-01').outputs.hello.value]", "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', 'abc', 'def'), 'Microsoft.Resources/deployments', 'myMod')]")]
-        [DataRow("managementGroup", "managementGroup()", "managementGroup", ExpectedMgSchema, "[reference(format('Microsoft.Resources/deployments/{0}', 'myMod'), '2020-06-01').outputs.hello.value]", "[format('Microsoft.Resources/deployments/{0}', 'myMod')]")]
+        [DataRow("managementGroup", "managementGroup()", "managementGroup", ExpectedMgSchema, "[reference(extensionResourceId(managementGroup().id, 'Microsoft.Resources/deployments', 'myMod'), '2020-06-01').outputs.hello.value]", "[extensionResourceId(managementGroup().id, 'Microsoft.Resources/deployments', 'myMod')]")]
         [DataRow("managementGroup", "subscription('abc')", "subscription", ExpectedMgSchema, "[reference(subscriptionResourceId('abc', 'Microsoft.Resources/deployments', 'myMod'), '2020-06-01').outputs.hello.value]", "[subscriptionResourceId('abc', 'Microsoft.Resources/deployments', 'myMod')]")]
         [DataRow("managementGroup", "resourceGroup('abc', 'def')", "resourceGroup", ExpectedMgSchema, "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', 'abc', 'def'), 'Microsoft.Resources/deployments', 'myMod'), '2020-06-01').outputs.hello.value]", "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', 'abc', 'def'), 'Microsoft.Resources/deployments', 'myMod')]")]
         [DataRow("subscription", "subscription()", "subscription", ExpectedSubSchema, "[reference(subscriptionResourceId('Microsoft.Resources/deployments', 'myMod'), '2020-06-01').outputs.hello.value]", "[subscriptionResourceId('Microsoft.Resources/deployments', 'myMod')]")]
@@ -74,7 +74,7 @@ output hello string = 'hello!'
         }
 
         [DataRow("tenant", "[tenantResourceId('My.Rp/myResource', 'resourceA')]", "[tenantResourceId('Microsoft.Resources/deployments', 'myMod')]")]
-        [DataRow("managementGroup", "[format('My.Rp/myResource/{0}', 'resourceA')]", "[format('Microsoft.Resources/deployments/{0}', 'myMod')]")]
+        [DataRow("managementGroup", "[extensionResourceId(managementGroup().id, 'My.Rp/myResource', 'resourceA')]", "[extensionResourceId(managementGroup().id, 'Microsoft.Resources/deployments', 'myMod')]")]
         [DataRow("subscription", "[subscriptionResourceId('My.Rp/myResource', 'resourceA')]", "[subscriptionResourceId('Microsoft.Resources/deployments', 'myMod')]")]
         [DataRow("resourceGroup", "[resourceId('My.Rp/myResource', 'resourceA')]", "[resourceId('Microsoft.Resources/deployments', 'myMod')]")]
         [DataTestMethod]
@@ -145,7 +145,7 @@ resource resourceC 'My.Rp/myResource@2020-01-01' = {
         }
 
         [DataRow("tenant", "[format('My.Rp/myResource/{0}', 'resourceA')]", "[reference(tenantResourceId('My.Rp/myResource', 'resourceA'), '2020-01-01').myProp]")]
-        [DataRow("managementGroup", "[format('My.Rp/myResource/{0}', 'resourceA')]", "[reference(format('My.Rp/myResource/{0}', 'resourceA'), '2020-01-01').myProp]")]
+        [DataRow("managementGroup", "[format('My.Rp/myResource/{0}', 'resourceA')]", "[reference(extensionResourceId(managementGroup().id, 'My.Rp/myResource', 'resourceA'), '2020-01-01').myProp]")]
         [DataRow("subscription", "[format('My.Rp/myResource/{0}', 'resourceA')]", "[reference(subscriptionResourceId('My.Rp/myResource', 'resourceA'), '2020-01-01').myProp]")]
         [DataRow("resourceGroup", "[format('My.Rp/myResource/{0}', 'resourceA')]", "[reference(resourceId('My.Rp/myResource', 'resourceA'), '2020-01-01').myProp]")]
         [DataTestMethod]
@@ -179,15 +179,15 @@ output resourceARef string = resourceA.properties.myProp
         public void Existing_resources_can_be_referenced_at_other_scopes()
         {
             var typeReference = ResourceTypeReference.Parse("My.Rp/myResource@2020-01-01");
-            var typeProvider = TestTypeHelper.CreateProviderWithTypes(new [] {
-                new ResourceType(typeReference, ResourceScope.ResourceGroup, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
+            var typeLoader = TestTypeHelper.CreateAzResourceTypeLoaderWithTypes(new [] {
+                new ResourceTypeComponents(typeReference, ResourceScope.ResourceGroup, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
                     new TypeProperty("name", LanguageConstants.String, TypePropertyFlags.DeployTimeConstant, "name property"),
                     new TypeProperty("kind", LanguageConstants.String, TypePropertyFlags.ReadOnly, "kind property"),
                 }, null))
             });
 
             // explicitly pass a valid scope
-            var (template, _, _) = CompilationHelper.Compile(typeProvider, ("main.bicep", @"
+            var (template, _, _) = CompilationHelper.Compile(typeLoader, ("main.bicep", @"
 resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
   name: 'resourceA'
   scope: resourceGroup()
@@ -202,7 +202,7 @@ output resourceARef string = resourceA.kind
             }
 
             // use a valid targetScope without setting the scope property
-            (template, _, _) = CompilationHelper.Compile(typeProvider, ("main.bicep", @"
+            (template, _, _) = CompilationHelper.Compile(typeLoader, ("main.bicep", @"
 targetScope = 'resourceGroup'
 
 resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
@@ -222,14 +222,14 @@ output resourceARef string = resourceA.kind
         public void Errors_are_raised_for_existing_resources_at_invalid_scopes()
         {
             var typeReference = ResourceTypeReference.Parse("My.Rp/myResource@2020-01-01");
-            var typeProvider = TestTypeHelper.CreateProviderWithTypes(new [] {
-                new ResourceType(typeReference, ResourceScope.ResourceGroup, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
+            var typeLoader = TestTypeHelper.CreateAzResourceTypeLoaderWithTypes(new [] {
+                new ResourceTypeComponents(typeReference, ResourceScope.ResourceGroup, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
                     new TypeProperty("name", LanguageConstants.String, TypePropertyFlags.DeployTimeConstant, "name property"),
                 }, null))
             });
 
             // explicitly pass an invalid scope
-            var (_, diags, _) = CompilationHelper.Compile(typeProvider, ("main.bicep", @"
+            var (_, diags, _) = CompilationHelper.Compile(typeLoader, ("main.bicep", @"
 resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
   name: 'resourceA'
   scope: subscription()
@@ -241,7 +241,7 @@ resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
             });
 
             // use an invalid targetScope without setting the scope property
-            (_, diags, _) = CompilationHelper.Compile(typeProvider, ("main.bicep", @"
+            (_, diags, _) = CompilationHelper.Compile(typeLoader, ("main.bicep", @"
 targetScope = 'subscription'
 
 resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
@@ -258,14 +258,14 @@ resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
         public void Errors_are_raised_for_extensions_of_existing_resources_at_invalid_scopes()
         {
             var typeReference = ResourceTypeReference.Parse("My.Rp/myResource@2020-01-01");
-            var typeProvider = TestTypeHelper.CreateProviderWithTypes(new [] {
-                new ResourceType(typeReference, ResourceScope.ResourceGroup | ResourceScope.Resource, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
+            var typeLoader = TestTypeHelper.CreateAzResourceTypeLoaderWithTypes(new [] {
+                new ResourceTypeComponents(typeReference, ResourceScope.ResourceGroup | ResourceScope.Resource, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
                     new TypeProperty("name", LanguageConstants.String, TypePropertyFlags.DeployTimeConstant, "name property"),
                 }, null))
             });
 
             // extension resource of an existing resource at an invalid scope
-            var (_, diags, _) = CompilationHelper.Compile(typeProvider, ("main.bicep", @"
+            var (_, diags, _) = CompilationHelper.Compile(typeLoader, ("main.bicep", @"
 resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
   name: 'resourceA'
   scope: resourceGroup('different')
@@ -286,14 +286,14 @@ resource resourceB 'My.Rp/myResource@2020-01-01' = {
         public void Extensions_of_existing_resources_are_permitted()
         {
             var typeReference = ResourceTypeReference.Parse("My.Rp/myResource@2020-01-01");
-            var typeProvider = TestTypeHelper.CreateProviderWithTypes(new [] {
-                new ResourceType(typeReference, ResourceScope.ResourceGroup | ResourceScope.Resource, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
+            var typeLoader = TestTypeHelper.CreateAzResourceTypeLoaderWithTypes(new [] {
+                new ResourceTypeComponents(typeReference, ResourceScope.ResourceGroup | ResourceScope.Resource, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
                     new TypeProperty("name", LanguageConstants.String, TypePropertyFlags.DeployTimeConstant, "name property"),
                 }, null))
             });
 
             // extension resource of an existing resource at an invalid scope
-            var (template, diags, _) = CompilationHelper.Compile(typeProvider, ("main.bicep", @"
+            var (template, diags, _) = CompilationHelper.Compile(typeLoader, ("main.bicep", @"
 resource resourceA 'My.Rp/myResource@2020-01-01' existing = {
   name: 'resourceA'
 }
@@ -320,13 +320,13 @@ resource resourceB 'My.Rp/myResource@2020-01-01' = {
         public void Tenant_scope_resources_can_be_deployed_from_anywhere(string targetScope, bool tenantScopeExpected)
         {
             var typeReference = ResourceTypeReference.Parse("My.Rp/myResource@2020-01-01");
-            var typeProvider = TestTypeHelper.CreateProviderWithTypes(new[] {
-                new ResourceType(typeReference, ResourceScope.Tenant, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
+            var typeLoader = TestTypeHelper.CreateAzResourceTypeLoaderWithTypes(new[] {
+                new ResourceTypeComponents(typeReference, ResourceScope.Tenant, new ObjectType(typeReference.FormatName(), TypeSymbolValidationFlags.Default, new [] {
                     new TypeProperty("name", LanguageConstants.String, TypePropertyFlags.DeployTimeConstant, "name property"),
                 }, null))
             });
 
-            var (template, diags, _) = CompilationHelper.Compile(typeProvider, ("main.bicep", @"
+            var (template, diags, _) = CompilationHelper.Compile(typeLoader, ("main.bicep", @"
 targetScope = 'TARGET_SCOPE'
 resource resourceA 'My.Rp/myResource@2020-01-01' = {
   name: 'resourceA'

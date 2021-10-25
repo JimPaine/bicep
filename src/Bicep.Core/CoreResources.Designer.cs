@@ -19,7 +19,7 @@ namespace Bicep.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class CoreResources {
@@ -57,6 +57,15 @@ namespace Bicep.Core {
             }
             set {
                 resourceCulture = value;
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to When setting an adminUserName property, don&apos;t use a literal value..
+        /// </summary>
+        internal static string AdminUsernameShouldNotBeLiteralRuleDescription {
+            get {
+                return ResourceManager.GetString("AdminUsernameShouldNotBeLiteralRuleDescription", resourceCulture);
             }
         }
         
@@ -183,6 +192,24 @@ namespace Bicep.Core {
         internal static string UnusedVariableRuleMessageFormat {
             get {
                 return ResourceManager.GetString("UnusedVariableRuleMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Virtual machines shouldn&apos;t use preview images..
+        /// </summary>
+        internal static string UseStableVMImage {
+            get {
+                return ResourceManager.GetString("UseStableVMImage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Virtual machines shouldn&apos;t use preview images. Use stable version in imageReference property &quot;{0}&quot;..
+        /// </summary>
+        internal static string UseStableVMImageRuleFixMessageFormat {
+            get {
+                return ResourceManager.GetString("UseStableVMImageRuleFixMessageFormat", resourceCulture);
             }
         }
     }
